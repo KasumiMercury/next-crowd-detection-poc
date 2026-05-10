@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@kasumimercury/web-crowd-detection-utils':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       next:
         specifier: 16.2.6
         version: 16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -293,8 +293,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kasumimercury/web-crowd-detection-utils@0.1.0':
-    resolution: {integrity: sha512-XOneXDDTqsr9LvxfEAZ3mAhbH34boaQpIvqTEvLmKr3rKJVdiNTg9w556he9helx8XMbZQB4cOeHW0s+Ubbqlw==, tarball: https://npm.pkg.github.com/download/@kasumimercury/web-crowd-detection-utils/0.1.0/d1d8a22d087fa514c1d57546ef02fad964192b52}
+  '@kasumimercury/web-crowd-detection-utils@0.2.0':
+    resolution: {integrity: sha512-8ybKBUuRTNdnRHEwpPkj8jmqC24NCArjXxrQPd5H612uRwy1Mm7+fdCpr/oHEj8Iufp0dFmW05SgH3qM/EYayA==, tarball: https://npm.pkg.github.com/download/@kasumimercury/web-crowd-detection-utils/0.2.0/43ecef3d2ecba0f4ef982773edbcc34d825a66b4}
     engines: {node: '>=20'}
 
   '@next/env@16.2.6':
@@ -881,7 +881,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kasumimercury/web-crowd-detection-utils@0.1.0':
+  '@kasumimercury/web-crowd-detection-utils@0.2.0':
     dependencies:
       onnxruntime-web: 1.26.0
 

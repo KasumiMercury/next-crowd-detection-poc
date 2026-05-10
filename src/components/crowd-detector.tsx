@@ -1,8 +1,14 @@
 "use client";
 
-import type {
-  Detection,
-  YoloDetector,
+import { isWebGpuAvailable } from "@kasumimercury/web-crowd-detection-utils/onnx";
+import {
+  createLetterboxCapturer,
+  reverseLetterboxBoxes,
+} from "@kasumimercury/web-crowd-detection-utils/source";
+import {
+  createYoloDetector,
+  type Detection,
+  type YoloDetector,
 } from "@kasumimercury/web-crowd-detection-utils/yolo";
 import { useEffect, useRef, useState } from "react";
 
@@ -32,13 +38,6 @@ export function CrowdDetector() {
           throw new Error("Video or canvas element is not mounted");
         }
 
-        const [yoloMod, sourceMod, onnxMod] = await Promise.all([
-          import("@kasumimercury/web-crowd-detection-utils/yolo"),
-          import("@kasumimercury/web-crowd-detection-utils/source"),
-          import("@kasumimercury/web-crowd-detection-utils/onnx"),
-        ]);
-        if (signal.aborted) return;
-
         setStatus("Fetching model…");
         const modelResponse = await fetch(MODEL_URL, { signal });
         if (!modelResponse.ok) {
@@ -49,11 +48,11 @@ export function CrowdDetector() {
         const modelBuffer = await modelResponse.arrayBuffer();
         if (signal.aborted) return;
 
-        const preferred = onnxMod.isWebGpuAvailable() ? "webgpu" : "wasm";
+        const preferred = isWebGpuAvailable() ? "webgpu" : "wasm";
         setStatus(`Initializing detector (backend: ${preferred})…`);
         let detector: YoloDetector;
         try {
-          detector = await yoloMod.createYoloDetector({
+          detector = await createYoloDetector({
             modelPath: modelBuffer,
             executionProvider: preferred,
             inputSize: INPUT_SIZE,
@@ -64,7 +63,7 @@ export function CrowdDetector() {
           setStatus(
             `WebGPU init failed (${(err as Error).message}); falling back to WASM`,
           );
-          detector = await yoloMod.createYoloDetector({
+          detector = await createYoloDetector({
             modelPath: modelBuffer,
             executionProvider: "wasm",
             inputSize: INPUT_SIZE,
@@ -89,9 +88,7 @@ export function CrowdDetector() {
         video.srcObject = stream;
         await video.play();
 
-        const capturer = sourceMod.createLetterboxCapturer({
-          inputSize: INPUT_SIZE,
-        });
+        const capturer = createLetterboxCapturer({ inputSize: INPUT_SIZE });
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           throw new Error("Failed to acquire 2D canvas context");
@@ -111,7 +108,7 @@ export function CrowdDetector() {
           const detections = await detector.detect(imageData);
           if (signal.aborted) break;
 
-          const mapped = sourceMod.reverseLetterboxBoxes(detections, params);
+          const mapped = reverseLetterboxBoxes(detections, params);
           drawDetections(ctx, canvas, mapped);
           await waitForFrame();
         }

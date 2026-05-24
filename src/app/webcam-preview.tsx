@@ -1,8 +1,12 @@
 "use client";
 
+import type { InferenceSession } from "onnxruntime-web";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type CameraStatus = "idle" | "starting" | "active" | "error";
+type ModelStatus = "loading" | "ready" | "error";
+
+const yoloModelPath = "/models/yolov8n.onnx";
 
 const cameraStatusLabel: Record<CameraStatus, string> = {
   idle: "停止中",
@@ -11,12 +15,23 @@ const cameraStatusLabel: Record<CameraStatus, string> = {
   error: "エラー",
 };
 
+const modelStatusLabel: Record<ModelStatus, string> = {
+  loading: "読み込み中",
+  ready: "読み込み完了",
+  error: "読み込み失敗",
+};
+
 export function WebcamPreview() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const sessionRef = useRef<InferenceSession | null>(null);
   const mountedRef = useRef(true);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [modelStatus, setModelStatus] = useState<ModelStatus>("loading");
+  const [modelErrorMessage, setModelErrorMessage] = useState<string | null>(
+    null,
+  );
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => {
@@ -75,11 +90,69 @@ export function WebcamPreview() {
   }, [stopCamera]);
 
   useEffect(() => {
+    let canceled = false;
+
+    async function loadYoloModel() {
+      setModelStatus("loading");
+      setModelErrorMessage(null);
+
+      try {
+        const response = await fetch(yoloModelPath, {
+          method: "HEAD",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          setModelStatus("error");
+
+          if (response.status === 404) {
+            setModelErrorMessage(
+              `${yoloModelPath} が見つかりません。public/models/yolov8n.onnx を配置してください。`,
+            );
+            return;
+          }
+
+          setModelErrorMessage(
+            `モデルファイルを確認できませんでした。HTTP ${response.status}`,
+          );
+          return;
+        }
+
+        const ort = await import("onnxruntime-web");
+        const session = await ort.InferenceSession.create(yoloModelPath, {
+          executionProviders: ["wasm"],
+        });
+
+        if (canceled) {
+          await session.release();
+          return;
+        }
+
+        sessionRef.current = session;
+        setModelStatus("ready");
+      } catch (error) {
+        if (canceled) {
+          return;
+        }
+
+        setModelStatus("error");
+        setModelErrorMessage(
+          error instanceof Error
+            ? `モデルを読み込めませんでした: ${error.message}`
+            : "モデルを読み込めませんでした。",
+        );
+      }
+    }
+
+    void loadYoloModel();
+
     return () => {
+      canceled = true;
       mountedRef.current = false;
       streamRef.current?.getTracks().forEach((track) => {
         track.stop();
       });
+      void sessionRef.current?.release();
     };
   }, []);
 
@@ -136,6 +209,21 @@ export function WebcamPreview() {
           >
             カメラを停止
           </button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-zinc-500">YOLOモデル</span>
+          <span className="text-lg font-semibold text-zinc-950">
+            {modelStatusLabel[modelStatus]}
+          </span>
+          <span className="text-sm text-zinc-600">{yoloModelPath}</span>
+          {modelErrorMessage ? (
+            <p className="text-sm font-medium text-red-600">
+              {modelErrorMessage}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

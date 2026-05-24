@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# model files
+/public/models/*.onnx
+
 # production
 /build
 

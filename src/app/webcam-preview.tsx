@@ -2,11 +2,15 @@
 
 import type { InferenceSession } from "onnxruntime-web";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { PersonPresenceResult } from "@/lib/yolo/types";
+import { WebcamPersonDetector } from "@/lib/yolo/webcamPersonDetector";
 
 type CameraStatus = "idle" | "starting" | "active" | "error";
 type ModelStatus = "loading" | "ready" | "error";
+type InferenceStatus = "idle" | "running" | "error";
 
 const yoloModelPath = "/models/yolov8n.onnx";
+const inferenceIntervalMs = 750;
 
 const cameraStatusLabel: Record<CameraStatus, string> = {
   idle: "停止中",
@@ -21,10 +25,19 @@ const modelStatusLabel: Record<ModelStatus, string> = {
   error: "読み込み失敗",
 };
 
+const inferenceStatusLabel: Record<InferenceStatus, string> = {
+  idle: "待機中",
+  running: "推論中",
+  error: "エラー",
+};
+
 export function WebcamPreview() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const inferenceCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<InferenceSession | null>(null);
+  const detectorRef = useRef<WebcamPersonDetector | null>(null);
+  const inferenceRunningRef = useRef(false);
   const mountedRef = useRef(true);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,6 +45,13 @@ export function WebcamPreview() {
   const [modelErrorMessage, setModelErrorMessage] = useState<string | null>(
     null,
   );
+  const [inferenceStatus, setInferenceStatus] =
+    useState<InferenceStatus>("idle");
+  const [inferenceErrorMessage, setInferenceErrorMessage] = useState<
+    string | null
+  >(null);
+  const [presenceResult, setPresenceResult] =
+    useState<PersonPresenceResult | null>(null);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => {
@@ -44,11 +64,16 @@ export function WebcamPreview() {
     }
 
     setStatus("idle");
+    setInferenceStatus("idle");
+    setInferenceErrorMessage(null);
+    setPresenceResult(null);
   }, []);
 
   const startCamera = useCallback(async () => {
     setStatus("starting");
     setErrorMessage(null);
+    setInferenceErrorMessage(null);
+    setPresenceResult(null);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("error");
@@ -128,7 +153,19 @@ export function WebcamPreview() {
           return;
         }
 
+        if (!inferenceCanvasRef.current) {
+          await session.release();
+          setModelStatus("error");
+          setModelErrorMessage("推論用canvasを初期化できませんでした。");
+          return;
+        }
+
         sessionRef.current = session;
+        detectorRef.current = new WebcamPersonDetector(
+          ort,
+          session,
+          inferenceCanvasRef.current,
+        );
         setModelStatus("ready");
       } catch (error) {
         if (canceled) {
@@ -152,22 +189,80 @@ export function WebcamPreview() {
       streamRef.current?.getTracks().forEach((track) => {
         track.stop();
       });
+      detectorRef.current = null;
       void sessionRef.current?.release();
     };
   }, []);
 
+  useEffect(() => {
+    if (status !== "active" || modelStatus !== "ready") {
+      return;
+    }
+
+    let canceled = false;
+
+    async function runInference() {
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+
+      if (canceled || inferenceRunningRef.current || !video || !detector) {
+        return;
+      }
+
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        return;
+      }
+
+      inferenceRunningRef.current = true;
+      setInferenceStatus("running");
+      setInferenceErrorMessage(null);
+
+      try {
+        const result = await detector.detect(video);
+
+        if (!canceled) {
+          setPresenceResult(result);
+          setInferenceStatus("idle");
+        }
+      } catch (error) {
+        if (!canceled) {
+          setInferenceStatus("error");
+          setInferenceErrorMessage(
+            error instanceof Error
+              ? `推論に失敗しました: ${error.message}`
+              : "推論に失敗しました。",
+          );
+        }
+      } finally {
+        inferenceRunningRef.current = false;
+      }
+    }
+
+    void runInference();
+    const intervalId = window.setInterval(runInference, inferenceIntervalMs);
+
+    return () => {
+      canceled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [status, modelStatus]);
+
   const isStarting = status === "starting";
   const isActive = status === "active";
+  const presenceLabel = presenceResult
+    ? presenceResult.hasPerson
+      ? "人がいます"
+      : "人はいません"
+    : "未判定";
 
   return (
     <section className="flex w-full max-w-4xl flex-col gap-6 px-6 py-10 sm:px-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-zinc-500">Webcam Preview</p>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">
-          Webカメラで人の在席を確認する
+          Webカメラ YOLO 人検出
         </h1>
         <p className="max-w-2xl text-base leading-7 text-zinc-600">
-          カメラ映像のプレビューを表示します。YOLOによる判定はまだ実装していません。
+          Webカメラ映像をYOLOで推論し、人がいるかどうかを判定します。
         </p>
       </div>
 
@@ -179,6 +274,7 @@ export function WebcamPreview() {
           muted
           playsInline
         />
+        <canvas ref={inferenceCanvasRef} className="hidden" aria-hidden />
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -212,18 +308,45 @@ export function WebcamPreview() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-zinc-500">YOLOモデル</span>
+          <span className="text-sm font-medium text-zinc-500">モデル状態</span>
           <span className="text-lg font-semibold text-zinc-950">
             {modelStatusLabel[modelStatus]}
           </span>
           <span className="text-sm text-zinc-600">{yoloModelPath}</span>
-          {modelErrorMessage ? (
-            <p className="text-sm font-medium text-red-600">
-              {modelErrorMessage}
-            </p>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-zinc-500">推論中状態</span>
+          <span className="text-lg font-semibold text-zinc-950">
+            {inferenceStatusLabel[inferenceStatus]}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-zinc-500">判定結果</span>
+          <span className="text-lg font-semibold text-zinc-950">
+            {presenceLabel}
+          </span>
+          {presenceResult?.maxScore != null ? (
+            <span className="text-sm text-zinc-600">
+              最大スコア: {presenceResult.maxScore.toFixed(2)}
+            </span>
           ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-zinc-500">
+            エラーメッセージ
+          </span>
+          {modelErrorMessage || inferenceErrorMessage ? (
+            <p className="text-sm font-medium text-red-600">
+              {modelErrorMessage ?? inferenceErrorMessage}
+            </p>
+          ) : (
+            <span className="text-sm text-zinc-600">なし</span>
+          )}
         </div>
       </div>
     </section>

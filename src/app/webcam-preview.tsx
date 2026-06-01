@@ -231,7 +231,7 @@ export function WebcamPreview() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-950 shadow-sm">
+      <div className="relative overflow-hidden rounded-lg border border-zinc-200 bg-zinc-950 shadow-sm">
         <video
           ref={videoRef}
           className="aspect-video w-full bg-zinc-950 object-cover"
@@ -239,6 +239,55 @@ export function WebcamPreview() {
           muted
           playsInline
         />
+        {presenceResult && presenceResult.boxes.length > 0 ? (
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox={`0 0 ${videoRef.current?.videoWidth || 1} ${
+              videoRef.current?.videoHeight || 1
+            }`}
+            preserveAspectRatio="xMidYMid slice"
+            aria-hidden
+          >
+            <title>検出した人物のバウンディングボックス</title>
+            {presenceResult.boxes.map((box) => {
+              const width = Math.max(0, box.x2 - box.x1);
+              const height = Math.max(0, box.y2 - box.y1);
+              const labelY = Math.max(18, box.y1);
+
+              return (
+                <g key={box.trackId}>
+                  <rect
+                    x={box.x1}
+                    y={box.y1}
+                    width={width}
+                    height={height}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth="3"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <rect
+                    x={box.x1}
+                    y={labelY - 18}
+                    width="86"
+                    height="18"
+                    fill="#22c55e"
+                    opacity="0.92"
+                  />
+                  <text
+                    x={box.x1 + 5}
+                    y={labelY - 5}
+                    fill="#052e16"
+                    fontSize="13"
+                    fontWeight="700"
+                  >
+                    ID {box.trackId} {Math.round(box.score * 100)}%
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">

@@ -10,7 +10,7 @@ import {
   type Detection,
   type YoloDetector,
 } from "@pj-hoakari/web-crowd-detection-utils/yolo";
-import type { PersonPresenceResult } from "./types";
+import type { PersonBoundingBox, PersonPresenceResult } from "./types";
 
 const inputSize = 640;
 const confidenceThreshold = 0.5;
@@ -70,6 +70,7 @@ export class WebcamPersonDetector {
       maxScore,
       currentCount: trackedPeople.length,
       totalCount: this.tracker.totalCount,
+      boxes: trackedPeople.map(toPersonBoundingBox),
     };
   }
 
@@ -130,4 +131,17 @@ function getMaxPersonScore(detections: readonly Detection[]): number | null {
   }
 
   return maxScore;
+}
+
+function toPersonBoundingBox(
+  detection: Detection & { trackId: number },
+): PersonBoundingBox {
+  return {
+    x1: detection.x1,
+    y1: detection.y1,
+    x2: detection.x2,
+    y2: detection.y2,
+    score: detection.score,
+    trackId: detection.trackId,
+  };
 }

@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@kasumimercury/web-crowd-detection-utils':
-        specifier: ^0.3.0
-        version: 0.3.0
+      '@pj-hoakari/web-crowd-detection-utils':
+        specifier: ^0.4.0
+        version: 0.4.0
       next:
         specifier: 16.2.6
         version: 16.2.6(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -296,10 +296,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kasumimercury/web-crowd-detection-utils@0.3.0':
-    resolution: {integrity: sha512-2v+hDGGvaO9EJ48wml/CELjVbbrwmV0jqQQ1Jxs1vNE8tnQvEHCNXt1z6dUSUgOSdZIrvD/Hknlw+ZeKiDv2Mw==, tarball: https://npm.pkg.github.com/download/@kasumimercury/web-crowd-detection-utils/0.3.0/1bf296ee05d8b2a6d19ab331d09560d052177a47}
-    engines: {node: '>=20'}
-
   '@next/env@16.2.6':
     resolution: {integrity: sha512-gd8HoHN4ufj73WmR3JmVolrpJR47ILK6LouP5xElPglaVxir6e1a7VzvTvDWkOoPXT9rkkTzyCxBu4yeZfZwcw==}
 
@@ -354,6 +350,10 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@pj-hoakari/web-crowd-detection-utils@0.4.0':
+    resolution: {integrity: sha512-9vUnuRfxNzz6x7747eso9xnAyr5Tbvko1ELdfKlrfnpW06j3CdRs3AG1lfklIOb5UhzEwcr0GenDkWN7DaPMEg==, tarball: https://npm.pkg.github.com/download/@pj-hoakari/web-crowd-detection-utils/0.4.0/507add502654ac1e97fcac1cfd6c4a7da973a59a}
+    engines: {node: '>=20'}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -884,10 +884,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kasumimercury/web-crowd-detection-utils@0.3.0':
-    dependencies:
-      onnxruntime-web: 1.26.0
-
   '@next/env@16.2.6': {}
 
   '@next/swc-darwin-arm64@16.2.6':
@@ -913,6 +909,10 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.2.6':
     optional: true
+
+  '@pj-hoakari/web-crowd-detection-utils@0.4.0':
+    dependencies:
+      onnxruntime-web: 1.26.0
 
   '@protobufjs/aspromise@1.1.2': {}
 

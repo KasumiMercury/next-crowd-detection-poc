@@ -1,6 +1,5 @@
 "use client";
 
-import type { InferenceSession } from "onnxruntime-web";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersonPresenceResult } from "@/lib/yolo/types";
 import { WebcamPersonDetector } from "@/lib/yolo/webcamPersonDetector";
@@ -33,9 +32,7 @@ const inferenceStatusLabel: Record<InferenceStatus, string> = {
 
 export function WebcamPreview() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const inferenceCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const sessionRef = useRef<InferenceSession | null>(null);
   const detectorRef = useRef<WebcamPersonDetector | null>(null);
   const inferenceRunningRef = useRef(false);
   const mountedRef = useRef(true);
@@ -122,50 +119,16 @@ export function WebcamPreview() {
       setModelErrorMessage(null);
 
       try {
-        const response = await fetch(yoloModelPath, {
-          method: "HEAD",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          setModelStatus("error");
-
-          if (response.status === 404) {
-            setModelErrorMessage(
-              `${yoloModelPath} が見つかりません。public/models/yolov8n.onnx を配置してください。`,
-            );
-            return;
-          }
-
-          setModelErrorMessage(
-            `モデルファイルを確認できませんでした。HTTP ${response.status}`,
-          );
-          return;
-        }
-
-        const ort = await import("onnxruntime-web");
-        const session = await ort.InferenceSession.create(yoloModelPath, {
-          executionProviders: ["wasm"],
+        const detector = await WebcamPersonDetector.create({
+          modelPath: yoloModelPath,
         });
 
         if (canceled) {
-          await session.release();
+          await detector.release();
           return;
         }
 
-        if (!inferenceCanvasRef.current) {
-          await session.release();
-          setModelStatus("error");
-          setModelErrorMessage("推論用canvasを初期化できませんでした。");
-          return;
-        }
-
-        sessionRef.current = session;
-        detectorRef.current = new WebcamPersonDetector(
-          ort,
-          session,
-          inferenceCanvasRef.current,
-        );
+        detectorRef.current = detector;
         setModelStatus("ready");
       } catch (error) {
         if (canceled) {
@@ -189,8 +152,9 @@ export function WebcamPreview() {
       streamRef.current?.getTracks().forEach((track) => {
         track.stop();
       });
+      const detector = detectorRef.current;
       detectorRef.current = null;
-      void sessionRef.current?.release();
+      void detector?.release();
     };
   }, []);
 
@@ -274,7 +238,6 @@ export function WebcamPreview() {
           muted
           playsInline
         />
-        <canvas ref={inferenceCanvasRef} className="hidden" aria-hidden />
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">

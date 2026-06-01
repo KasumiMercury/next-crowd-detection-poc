@@ -1,6 +1,10 @@
+import { BYTETracker } from "@pj-hoakari/web-crowd-detection-utils/bytetrack";
 import type { ExecutionProvider } from "@pj-hoakari/web-crowd-detection-utils/onnx";
 import { isWebGpuAvailable } from "@pj-hoakari/web-crowd-detection-utils/onnx";
-import { createLetterboxCapturer } from "@pj-hoakari/web-crowd-detection-utils/source";
+import {
+  createLetterboxCapturer,
+  reverseLetterboxBoxes,
+} from "@pj-hoakari/web-crowd-detection-utils/source";
 import {
   createYoloDetector,
   type Detection,
@@ -20,6 +24,7 @@ export class WebcamPersonDetector {
   private constructor(
     private readonly detector: YoloDetector,
     private readonly capturer: ReturnType<typeof createLetterboxCapturer>,
+    private readonly tracker: BYTETracker,
   ) {}
 
   static async create({
@@ -44,8 +49,9 @@ export class WebcamPersonDetector {
     const modelBuffer = await response.arrayBuffer();
     const detector = await createDetectorWithFallback(modelBuffer);
     const capturer = createLetterboxCapturer({ inputSize });
+    const tracker = new BYTETracker();
 
-    return new WebcamPersonDetector(detector, capturer);
+    return new WebcamPersonDetector(detector, capturer, tracker);
   }
 
   async detect(video: HTMLVideoElement): Promise<PersonPresenceResult> {
@@ -53,14 +59,22 @@ export class WebcamPersonDetector {
       throw new Error("カメラ映像をまだ取得できていません。");
     }
 
-    const { imageData } = this.capturer.capture(video);
+    const { imageData, params } = this.capturer.capture(video);
     const detections = await this.detector.detect(imageData);
+    const sourceDetections = reverseLetterboxBoxes(detections, params);
+    const trackedPeople = this.tracker.update(sourceDetections);
     const maxScore = getMaxPersonScore(detections);
 
     return {
-      hasPerson: maxScore !== null && maxScore >= confidenceThreshold,
+      hasPerson: trackedPeople.length > 0,
       maxScore,
+      currentCount: trackedPeople.length,
+      totalCount: this.tracker.totalCount,
     };
+  }
+
+  reset(): void {
+    this.tracker.reset();
   }
 
   async release(): Promise<void> {

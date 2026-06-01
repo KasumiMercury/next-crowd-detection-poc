@@ -60,6 +60,7 @@ export function WebcamPreview() {
       videoRef.current.srcObject = null;
     }
 
+    detectorRef.current?.reset();
     setStatus("idle");
     setInferenceStatus("idle");
     setInferenceErrorMessage(null);
@@ -226,7 +227,7 @@ export function WebcamPreview() {
           Webカメラ YOLO 人検出
         </h1>
         <p className="max-w-2xl text-base leading-7 text-zinc-600">
-          Webカメラ映像をYOLOで推論し、人がいるかどうかを判定します。
+          Webカメラ映像をYOLOとByteTrackで推論し、現在人数と累計人数をカウントします。
         </p>
       </div>
 
@@ -292,6 +293,12 @@ export function WebcamPreview() {
           <span className="text-lg font-semibold text-zinc-950">
             {presenceLabel}
           </span>
+          {presenceResult ? (
+            <span className="text-sm text-zinc-600">
+              現在人数: {presenceResult.currentCount}人 / 累計人数:{" "}
+              {presenceResult.totalCount}人
+            </span>
+          ) : null}
           {presenceResult?.maxScore != null ? (
             <span className="text-sm text-zinc-600">
               最大スコア: {presenceResult.maxScore.toFixed(2)}
